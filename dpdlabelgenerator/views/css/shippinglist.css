@@ -1,0 +1,48 @@
+@media print{
+	#main {
+		width: 8in !important;
+		float: none !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+	
+	#content {
+		float: none !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+	
+	.page-head{
+		display: none;
+	}
+	
+}
+
+#shippin_list_container{
+	width: 100%;
+}
+
+#dpd_sender_address{
+	position: relative;
+	float: left;
+}
+
+#dpd_logo{
+	display: block;
+	position: relative;
+	float:right;
+}
+
+#dpd_logo img{
+	height: 6em;
+}
+
+#shipping_list{
+	clear: both;
+}
+
+#dpd_signature_box{
+	height: 6em;
+	width: 24em;
+	border: solid black 1px;
+}
