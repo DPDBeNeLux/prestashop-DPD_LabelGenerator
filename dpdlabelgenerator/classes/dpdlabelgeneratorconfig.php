@@ -42,7 +42,7 @@ class DpdLabelGeneratorConfig
 			,'elements'	=> array(
 				array(
 					'type' => 'select'
-					,'name' => 'Generate label on status'
+					,'name' => 'On status'
 					,'required' => true
 					,'options' => array(
 						'query' => array()
@@ -71,7 +71,7 @@ class DpdLabelGeneratorConfig
 				)
 				,array(
 					'type' => 'radio'
-					,'name' => 'Propose download on status change'
+					,'name' => 'Auto download'
 					,'required' => true
 					,'class' => 't'
 					,'default_value' => 2
@@ -84,7 +84,7 @@ class DpdLabelGeneratorConfig
 						,array(
 							'id' => 'All'
 							,'value' => 2
-							,'label' => 'No (Manual download)'
+							,'label' => 'No'
 						)
 					)
 				)

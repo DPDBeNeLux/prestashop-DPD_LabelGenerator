@@ -29,10 +29,12 @@
 								<i class="icon-warning-sign list-empty-icon"></i>
 								{l s='There is no label available'}
 							</div>
+<!--
 							<a class="btn btn-default" href="">
 								<i class="icon-repeat"></i>
 								{l s='Generate label'}
 							</a>
+-->
 						</td>
 					</tr>
 				{/foreach}

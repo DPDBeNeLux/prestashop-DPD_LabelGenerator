@@ -33,8 +33,8 @@ class DpdLabelGenerator extends Module
 		$this->config = new DpdLabelGeneratorConfig();
 	
 		$this->name = 'dpdlabelgenerator';
-		$this->version = '0.1.0';
-		$this->ps_versions_compliancy = array('min' => '1.6', 'max' => _PS_VERSION_);
+		$this->version = '0.0.1';
+		$this->ps_versions_compliancy = array('min' => '1.5', 'max' => _PS_VERSION_);
 		$this->author = 'Michiel Van Gucht';
 		
 		$this->tab = 'shipping_logistics';
@@ -108,9 +108,9 @@ class DpdLabelGenerator extends Module
 				
 				$value = strval(Tools::getValue($variable_name));
 				if (!$value || empty($value))
-						$output .= $this->displayError($this->l('Invalid Configuration value ('.$user_readable_name.')'));
-					else
-						Configuration::updateValue($variable_name, $value);
+					$output .= $this->displayError($this->l('Invalid Configuration value ('.$user_readable_name.')'));
+				else
+					Configuration::updateValue($variable_name, $value);
 			}
 			
 			if ($output == null)
@@ -130,15 +130,17 @@ class DpdLabelGenerator extends Module
 		
 		foreach ($fields_config as $group_key => $config_group)
 		{
-			$fields_form[$group_key]['form'] = array(
-				'legend'	=> array(
-					'title'	=> $this->l($config_group['name'])
-				),
-				'submit'	=> array(
-					'title'	=> $this->l('Save'),
-					'class'	=> 'button'
-				)
-			);
+			
+			if($group_key == 0 || substr(_PS_VERSION_, 0, 3) > '1.5')
+				$fields_form[$group_key]['form'] = array(
+					'legend'	=> array(
+						'title'	=> $this->l($config_group['name'])
+					),
+					'submit'	=> array(
+						'title'	=> $this->l('Save'),
+						'class'	=> 'button'
+					)
+				);
 			foreach ($config_group['elements'] as $element)
 			{
 				$config = $element;
@@ -202,7 +204,7 @@ class DpdLabelGenerator extends Module
 	
 	public function hookActionOrderStatusUpdate($params)
 	{
-		if($params['newOrderStatus']->id == (int)Configuration::get($this->generateVariableName('Generate label on status')))
+		if($params['newOrderStatus']->id == (int)Configuration::get($this->generateVariableName('On status')))
 		{
 			$current_order = new Order($params['id_order']);
 			$current_carrier = new Carrier($current_order->id_carrier);
@@ -276,8 +278,8 @@ class DpdLabelGenerator extends Module
 				
 				$shipment->request['order']['productAndServiceData']['orderType'] = 'consignment';
 				
-				$parcelshop_carrier = new Carrier(Configuration::get($this->generateVariableName('DPD ParcelShop carrier id')));
-				$classic_carrier = new Carrier(Configuration::get($this->generateVariableName('DPD Classic carrier id')));
+				$parcelshop_carrier = new Carrier(Configuration::get($this->generateVariableName('DPD ParcelShop id')));
+				$classic_carrier = new Carrier(Configuration::get($this->generateVariableName('DPD Classic id')));
 				
 				
 				if($current_carrier->external_module_name == 'dpdcarrier'
@@ -371,10 +373,37 @@ class DpdLabelGenerator extends Module
 	
 	public function hookActionOrderHistoryAddAfter($params)
 	{
-		if($params['order_history']->id_order_state == (int)Configuration::get($this->generateVariableName('Generate label on status'))
-			&& Configuration::get($this->generateVariableName('Propose download on status change')) == 1)
+		if($params['order_history']->id_order_state == (int)Configuration::get($this->generateVariableName('On status'))
+			&& Configuration::get($this->generateVariableName('Auto download')) == 1)
 			if(!count($this->context->controller->errors))
 				Tools::redirectAdmin($this->context->link->getAdminLink('AdminDpdLabels') . "&labelnumber=" . $this->getLastAddedLabel($params['order_history']->id_order));
+	}
+
+	public function hookDisplayAdminOrder($params)
+	{
+		if(substr(_PS_VERSION_, 0, 3) == '1.5')
+		{
+			$labels = array();
+		
+			foreach($this->getOrderCarriers($params['id_order']) as $key => $order_carrier)
+			{
+				if(preg_match("/^[0-9]{14}$/", $order_carrier['tracking_number']))
+				{
+					$labels[$key] = new stdClass();
+					$labels[$key]->number = $order_carrier['tracking_number'];
+					$labels[$key]->date_add = $order_carrier['date_add'];
+					$labels[$key]->weight = $order_carrier['weight'];
+				}
+			}
+
+			$this->context->smarty->assign(
+				array(
+					'downloadLink' => $this->context->link->getAdminLink('AdminDpdLabels')
+					,'labels' => $labels
+				)
+			);
+			return $this->display(__FILE__, '_labels15.tpl');
+		}
 	}
 	
 	public function hookDisplayAdminOrderTabOrder($params)
@@ -392,27 +421,30 @@ class DpdLabelGenerator extends Module
 	
 	public function hookDisplayAdminOrderContentOrder($params)
 	{
-		$labels = array();
-		
-		foreach($this->getOrderCarriers($params['order']->id) as $key => $order_carrier)
+		if(substr(_PS_VERSION_, 0, 3) > '1.5')
 		{
-			if(preg_match("/^[0-9]{14}$/", $order_carrier['tracking_number']))
+			$labels = array();
+		
+			foreach($this->getOrderCarriers($params['order']->id) as $key => $order_carrier)
 			{
-				$labels[$key] = new stdClass();
-				$labels[$key]->number = $order_carrier['tracking_number'];
-				$labels[$key]->date_add = $order_carrier['date_add'];
-				$labels[$key]->weight = $order_carrier['weight'];
+				if(preg_match("/^[0-9]{14}$/", $order_carrier['tracking_number']))
+				{
+					$labels[$key] = new stdClass();
+					$labels[$key]->number = $order_carrier['tracking_number'];
+					$labels[$key]->date_add = $order_carrier['date_add'];
+					$labels[$key]->weight = $order_carrier['weight'];
+				}
 			}
+
+			$this->context->smarty->assign(
+				array(
+					'downloadLink' => $this->context->link->getAdminLink('AdminDpdLabels')
+					,'labels' => $labels
+				)
+			);
+
+			return $this->display(__FILE__, '_labels16.tpl');
 		}
-
-		$this->context->smarty->assign(
-			array(
-				'downloadLink' => $this->context->link->getAdminLink('AdminDpdLabels')
-				,'labels' => $labels
-			)
-		);
-
-		return $this->display(__FILE__, '_labels.tpl');
 	}
 	
 	/*********************
@@ -420,7 +452,7 @@ class DpdLabelGenerator extends Module
 	 *********************/
 	public static function generateVariableName($input)
 	{
-		$moduleName = 'dpdlabelgenerator';
+		$moduleName = 'dpdlabelgen';
 		if(Module::isInstalled('dpdcarrier')
 			&& Module::isEnabled('dpdcarrier'))
 			$moduleName = 'dpdcarrier';
