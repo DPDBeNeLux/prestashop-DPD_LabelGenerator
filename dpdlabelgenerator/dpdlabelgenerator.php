@@ -254,7 +254,7 @@ class DpdLabelGenerator extends Module
 				
 				$shipment->request['order'] = array(
 					'generalShipmentData' => array(
-						'sendingDepot' => '0522' //$login->depot
+						'sendingDepot' => $login->depot
 						,'product' => 'CL'
 						,'sender' => array(
 							'name1' => Configuration::get('PS_SHOP_NAME')
