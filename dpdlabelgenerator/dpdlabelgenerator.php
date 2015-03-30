@@ -33,7 +33,7 @@ class DpdLabelGenerator extends Module
 		$this->config = new DpdLabelGeneratorConfig();
 	
 		$this->name = 'dpdlabelgenerator';
-		$this->version = '0.1.1';
+		$this->version = '0.1.2';
 		$this->ps_versions_compliancy = array('min' => '1.5', 'max' => _PS_VERSION_);
 		$this->author = 'Michiel Van Gucht';
 		
@@ -209,7 +209,7 @@ class DpdLabelGenerator extends Module
 			$current_order = new Order($params['id_order']);
 			$current_carrier = new Carrier($current_order->id_carrier);
 			
-			if(Configuration::get($this->generateVariableName('DPD Carrier Only'))
+			if(Configuration::get($this->generateVariableName('DPD Carrier Only')) == 1
 				&& $current_carrier->external_module_name != 'dpdcarrier')
 					return;
 
