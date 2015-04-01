@@ -71,18 +71,38 @@ class DpdLabelGeneratorConfig
 				)
 				,array(
 					'type' => 'radio'
+					,'name' => 'Default Predict'
+					,'required' => true
+					,'class' => 't'
+					,'is_bool' => true
+					,'default_value' => 1
+					,'values' => array(
+						array(
+							'id' => 'perdict_on'
+							,'value' => 1
+							,'label' => 'Yes'
+						)
+						,array(
+							'id' => 'predict_off'
+							,'value' => 2
+							,'label' => 'No'
+						)
+					)
+				)
+				,array(
+					'type' => 'radio'
 					,'name' => 'Auto download'
 					,'required' => true
 					,'class' => 't'
 					,'default_value' => 2
 					,'values' => array(
 						array(
-							'id' => 'DpdOnly'
+							'id' => 'auto'
 							,'value' => 1
 							,'label' => 'Yes'
 						)
 						,array(
-							'id' => 'All'
+							'id' => 'manual'
 							,'value' => 2
 							,'label' => 'No'
 						)

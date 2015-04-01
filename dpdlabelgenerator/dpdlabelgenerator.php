@@ -33,7 +33,7 @@ class DpdLabelGenerator extends Module
 		$this->config = new DpdLabelGeneratorConfig();
 	
 		$this->name = 'dpdlabelgenerator';
-		$this->version = '0.1.2';
+		$this->version = '0.1.3';
 		$this->ps_versions_compliancy = array('min' => '1.5', 'max' => _PS_VERSION_);
 		$this->author = 'Michiel Van Gucht';
 		
@@ -254,7 +254,8 @@ class DpdLabelGenerator extends Module
 				
 				$shipment->request['order'] = array(
 					'generalShipmentData' => array(
-						'sendingDepot' => $login->depot
+						'mpsCustomerReferenceNumber1' => $current_order->reference
+						,'sendingDepot' => $login->depot
 						,'product' => 'CL'
 						,'sender' => array(
 							'name1' => Configuration::get('PS_SHOP_NAME')
@@ -265,21 +266,26 @@ class DpdLabelGenerator extends Module
 						)
 						,'recipient' => array(
 							'name1' => substr($recipient_address->firstname . ' ' . $recipient_address->lastname, 0, 35)
+							,'name2' => $recipient_address->address2
 							,'street' => $recipient_address->address1
 							,'country' => Country::getIsoById($recipient_address->id_country)
 							,'zipCode' => $recipient_address->postcode
 							,'city' => $recipient_address->city
+							,'phone' => $recipient_customer->phone_mobile
+							,'email' => $recipient_customer->email
 						)
 					)
 					,'parcels' => array(
-						'weight' => $old_order_carrier->weight * $this->getWeightMultiplier()
+						'customerReferenceNumber1' => $current_order->reference
+						,'weight' => $old_order_carrier->weight * $this->getWeightMultiplier()
 					)
 				);
 				
 				$shipment->request['order']['productAndServiceData']['orderType'] = 'consignment';
 				
-				$parcelshop_carrier = new Carrier(Configuration::get($this->generateVariableName('DPD ParcelShop id')));
-				$classic_carrier = new Carrier(Configuration::get($this->generateVariableName('DPD Classic id')));
+				$parcelshop_carrier = new Carrier(Configuration::get($this->generateVariableName('pickup id')));
+				$classic_carrier = new Carrier(Configuration::get($this->generateVariableName('home id')));
+				$home_carrier = new Carrier(Configuration::get($this->generateVariableName('home with predict id')));
 				
 				
 				if($current_carrier->external_module_name == 'dpdcarrier'
@@ -300,8 +306,9 @@ class DpdLabelGenerator extends Module
 							,'language' => Language::getIsoById($current_order->id_lang)
 						);
 				}
-				elseif($current_carrier->external_module_name != 'dpdcarrier'
-					|| $current_carrier->id_reference != $classic_carrier->id_reference)
+				elseif(($current_carrier->external_module_name != 'dpdcarrier'
+					&& Configuration::get($this->generateVariableName('Default Predict')) == 1)
+					|| $current_carrier->id_reference == $home_carrier->id_reference)
 					if($recipient_customer->email)
 						$shipment->request['order']['productAndServiceData']['predict'] = array(
 							'channel' => '1'
@@ -314,7 +321,7 @@ class DpdLabelGenerator extends Module
 							,'value' => $recipient_address->phone_mobile
 							,'language' => Language::getIsoById($current_order->id_lang)
 						);
-				
+
 				try
 				{
 					$shipment->send();
