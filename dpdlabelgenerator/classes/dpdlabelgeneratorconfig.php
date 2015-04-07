@@ -38,11 +38,11 @@ class DpdLabelGeneratorConfig
 			)
 		)
 		,array(
-			'name'	=> 'Options'
+			'name'	=> 'Labels'
 			,'elements'	=> array(
 				array(
 					'type' => 'select'
-					,'name' => 'On status'
+					,'name' => 'On Status'
 					,'required' => true
 					,'options' => array(
 						'query' => array()
@@ -91,7 +91,7 @@ class DpdLabelGeneratorConfig
 				)
 				,array(
 					'type' => 'radio'
-					,'name' => 'Auto download'
+					,'name' => 'Auto Download'
 					,'required' => true
 					,'class' => 't'
 					,'default_value' => 2
@@ -110,14 +110,55 @@ class DpdLabelGeneratorConfig
 				)
 			)
 		)
+		,array(
+			'name'	=> 'Shipping List'
+			,'elements'	=> array(
+				array(
+					'type' => 'select'
+					,'name' => 'Filter Status'
+					,'required' => true
+					,'options' => array(
+						'query' => array()
+						,'id' => 'id_filter'
+						,'name' => 'name'
+					)
+				)
+				,array(
+					'type' => 'radio'
+					,'name' => 'Filter Today'
+					,'required' => true
+					,'class' => 't'
+					,'default_value' => 2
+					,'values' => array(
+						array(
+							'id' => 'Yes'
+							,'value' => 1
+							,'label' => 'Yes'
+						)
+						,array(
+							'id' => 'No'
+							,'value' => 2
+							,'label' => 'No'
+						)
+					)
+				)
+			)
+		)
 	);
 	
 	public function __construct(){
 		$default_lang = (int)Configuration::get('PS_LANG_DEFAULT');
+		
+		$this->config[2]['elements'][0]['options']['query'][-1]['id_filter'] = '-1';
+		$this->config[2]['elements'][0]['options']['query'][-1]['name'] = 'All';
+		
 		foreach(OrderState::getOrderStates($default_lang) as $key => $orderState)
 		{
 			$this->config[1]['elements'][0]['options']['query'][$key]['id_option'] = $orderState['id_order_state'];
 			$this->config[1]['elements'][0]['options']['query'][$key]['name'] = $orderState['name'];
+			
+			$this->config[2]['elements'][0]['options']['query'][$key]['id_filter'] = $orderState['id_order_state'];
+			$this->config[2]['elements'][0]['options']['query'][$key]['name'] = $orderState['name'];
 		}
 		
 		if(Module::isInstalled('dpdcarrier')

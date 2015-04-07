@@ -6,14 +6,33 @@ class AdminDpdLabelsController extends ModuleAdminController
 	public function __construct()
 	{
 		parent::__construct();
+		
+		if(Tools::getValue('download_label'))
+		{
+			$this->downloadLabels(Tools::getValue('selected_label'));
+			
+			die;
+		}
+		
+		if(Tools::getValue('generate_label'))
+		{
+			$label_count = Tools::getValue('label_count');
+			$id_order = Tools::getValue('id_order');
+			
+			$labels = array();
+			for ($i = 0; $i < $label_count; $i++)
+				$labels[] = $this->module->generateLabel($id_order);
+				
+			$this->downloadLabels($labels);
+	
+			die;
+		}
 
 		if(Tools::getValue('labelnumber'))
 		{
 			$label_number = Tools::getValue('labelnumber');
 			
-			header("Content-type:application/pdf");
-			header("Content-Disposition:attachment;filename='" . $label_number . ".pdf'");
-			readfile($this->module->download_location . DS . $label_number . '.pdf');
+			$this->downloadLabels(array($label_number));
 			
 			die;
 		}
@@ -30,7 +49,12 @@ class AdminDpdLabelsController extends ModuleAdminController
 		$this->context->smarty->assign(
 			array(
 				'sender' => $this->getSenderAddress()
-				,'shipments' => $this->getShipments()
+				,'shipments' => $this->getShipments(
+					array(
+						'date' => (Configuration::get($this->module->generateVariableName('Filter Today')) == 1 ? date("Y-m-d H:i:s") : null)
+						,'status' => Configuration::get($this->module->generateVariableName('Filter Status'))
+					)
+				)
 				,'logo_path' => __PS_BASE_URI__ . 'img/dpd_logo.jpg'
 			)
 		);
@@ -40,10 +64,21 @@ class AdminDpdLabelsController extends ModuleAdminController
     $this->setTemplate('shipping-list.tpl');
   }
 	
-	private function getShipments($date = null)
+	private function getShipments($filters = null)
 	{
-		if(!$date)
-			$date = date("Y-m-d H:i:s");
+		if(isset($filters['date']) && $filters['date'] != null)
+			$date = $filters['date'];
+			
+		if(isset($filters['status']) && $filters['status'] != -1)
+			$status = $filters['status'];
+		
+		$where = '';
+		if (isset($date) && isset($status))
+			$where .= 'WHERE DATE(oc.`date_add`) = DATE("'.$date.'") AND o.`current_state` = '.$filters['status'];
+		elseif (isset($date))
+			$where .= 'WHERE DATE(oc.`date_add`) = DATE("'.$date.'")';
+		elseif (isset($status))
+			$where .= 'WHERE o.`current_state` = '.$filters['status'];
 			
 		$query_result = Db::getInstance()->executeS('
 			SELECT 
@@ -66,10 +101,10 @@ class AdminDpdLabelsController extends ModuleAdminController
 				ON o.`id_address_delivery` = a.`id_address`
 			JOIN `'._DB_PREFIX_.'country` as co
 				ON a.`id_country` = co.`id_country`
-			WHERE DATE(oc.`date_add`) = DATE("'.$date.'")
+			'.$where.' 
 			');
 			
-		$result;
+		$result = array();
 			
 		foreach($query_result as $curr_result)
 		{
@@ -89,5 +124,20 @@ class AdminDpdLabelsController extends ModuleAdminController
 			,'postcode' => Configuration::get('PS_SHOP_CODE')
 			,'city' => Configuration::get('PS_SHOP_CITY')
 		);
+	}
+	
+	private function downloadLabels($range)
+	{
+		if(count($range) > 0)
+		{
+			include_once(_PS_MODULE_DIR_.'dpdlabelgenerator/libraries/PDFMerger/PDFMerger.php');
+					
+			$pdf = new PDFMerger;
+			
+			foreach ($range as $label_number)
+				$pdf->addPDF($this->module->download_location . DS . $label_number . '.pdf', 'all');
+
+			$pdf->merge('browser', 'labels.pdf');
+		}
 	}
 }
