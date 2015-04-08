@@ -22,9 +22,16 @@ class AdminDpdLabelsController extends ModuleAdminController
 			$labels = array();
 			for ($i = 0; $i < $label_count; $i++)
 				$labels[] = $this->module->generateLabel($id_order);
-				
-			$this->downloadLabels($labels);
-	
+			
+			if(!count($this->context->controller->errors))
+				$this->downloadLabels($labels);
+			else
+			{
+				foreach($this->context->controller->errors as $error)
+					$this->errors[] = Tools::displayError($error);
+				return;
+			}
+
 			die;
 		}
 

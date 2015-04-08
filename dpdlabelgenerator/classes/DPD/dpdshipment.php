@@ -112,7 +112,16 @@ class DpdShipment
 			}
 			$stop = true;
 		}
-
+		
+		if(isset($result->orderResult->shipmentResponses->faults))
+		{
+		
+			$fault = $result->orderResult->shipmentResponses->faults;
+			$message = $fault->message .' ('. $fault->faultCode . ')';
+			
+			throw new Exception($message);
+		}
+		
 		$this->result = $result;
 		return $result;
 	}

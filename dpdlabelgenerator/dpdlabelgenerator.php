@@ -33,7 +33,7 @@ class DpdLabelGenerator extends Module
 		$this->config = new DpdLabelGeneratorConfig();
 	
 		$this->name = 'dpdlabelgenerator';
-		$this->version = '0.1.5';
+		$this->version = '0.1.6';
 		//$this->ps_versions_compliancy = array('min' => '1.5', 'max' => _PS_VERSION_);
 		$this->author = 'Michiel Van Gucht';
 		
@@ -530,6 +530,7 @@ class DpdLabelGenerator extends Module
 			{
 				Logger::addLog('Something went wrong while generating a DPD Label (' . $e->getMessage() . ')', 3, null, null, null, true);
 				$this->context->controller->errors[] = Tools::displayError('Something went wrong while generating a DPD Label (' . $e->getMessage() . ')');
+				return;
 			}
 			
 			if(!count($this->context->controller->errors))
