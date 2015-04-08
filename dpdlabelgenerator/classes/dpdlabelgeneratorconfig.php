@@ -71,6 +71,30 @@ class DpdLabelGeneratorConfig
 				)
 				,array(
 					'type' => 'radio'
+					,'name' => 'Auto Download'
+					,'required' => true
+					,'class' => 't'
+					,'default_value' => 2
+					,'values' => array(
+						array(
+							'id' => 'auto'
+							,'value' => 1
+							,'label' => 'Yes'
+						)
+						,array(
+							'id' => 'manual'
+							,'value' => 2
+							,'label' => 'No'
+						)
+					)
+				)
+			)
+		)
+		,array(
+			'name'	=> 'Services'
+			,'elements'	=> array(
+				array(
+					'type' => 'radio'
 					,'name' => 'Default Predict'
 					,'required' => true
 					,'class' => 't'
@@ -90,23 +114,8 @@ class DpdLabelGeneratorConfig
 					)
 				)
 				,array(
-					'type' => 'radio'
-					,'name' => 'Auto Download'
-					,'required' => true
-					,'class' => 't'
-					,'default_value' => 2
-					,'values' => array(
-						array(
-							'id' => 'auto'
-							,'value' => 1
-							,'label' => 'Yes'
-						)
-						,array(
-							'id' => 'manual'
-							,'value' => 2
-							,'label' => 'No'
-						)
-					)
+					'name'	=>	'Default Weight'
+					,'required'	=> false
 				)
 			)
 		)
@@ -149,16 +158,16 @@ class DpdLabelGeneratorConfig
 	public function __construct(){
 		$default_lang = (int)Configuration::get('PS_LANG_DEFAULT');
 		
-		$this->config[2]['elements'][0]['options']['query'][-1]['id_filter'] = '-1';
-		$this->config[2]['elements'][0]['options']['query'][-1]['name'] = 'All';
+		$this->config[3]['elements'][0]['options']['query'][-1]['id_filter'] = '-1';
+		$this->config[3]['elements'][0]['options']['query'][-1]['name'] = 'All';
 		
 		foreach(OrderState::getOrderStates($default_lang) as $key => $orderState)
 		{
 			$this->config[1]['elements'][0]['options']['query'][$key]['id_option'] = $orderState['id_order_state'];
 			$this->config[1]['elements'][0]['options']['query'][$key]['name'] = $orderState['name'];
 			
-			$this->config[2]['elements'][0]['options']['query'][$key]['id_filter'] = $orderState['id_order_state'];
-			$this->config[2]['elements'][0]['options']['query'][$key]['name'] = $orderState['name'];
+			$this->config[3]['elements'][0]['options']['query'][$key]['id_filter'] = $orderState['id_order_state'];
+			$this->config[3]['elements'][0]['options']['query'][$key]['name'] = $orderState['name'];
 		}
 		
 		if(Module::isInstalled('dpdcarrier')

@@ -33,8 +33,8 @@ class DpdLabelGenerator extends Module
 		$this->config = new DpdLabelGeneratorConfig();
 	
 		$this->name = 'dpdlabelgenerator';
-		$this->version = '0.1.3';
-		$this->ps_versions_compliancy = array('min' => '1.5', 'max' => _PS_VERSION_);
+		$this->version = '0.1.5';
+		//$this->ps_versions_compliancy = array('min' => '1.5', 'max' => _PS_VERSION_);
 		$this->author = 'Michiel Van Gucht';
 		
 		$this->tab = 'shipping_logistics';
@@ -53,6 +53,9 @@ class DpdLabelGenerator extends Module
 	
 	public function install()
 	{
+		if (substr(_PS_VERSION_, 0, 3) < '1.5')
+			return false;
+		
 		if (Shop::isFeatureActive())
 			Shop::setContext(Shop::CONTEXT_ALL);
 			
@@ -107,8 +110,9 @@ class DpdLabelGenerator extends Module
 				$user_readable_name = $config_element['name'];
 				
 				$value = strval(Tools::getValue($variable_name));
-				if (!$value || empty($value))
-					$output .= $this->displayError($this->l('Invalid Configuration value ('.$user_readable_name.')'));
+				if ($config_element['required'] 
+				&& (!$value || empty($value)))
+					$output .= $this->displayError($this->l('Invalid configuration value').' ( '.$user_readable_name.' )');
 				else
 					Configuration::updateValue($variable_name, $value);
 			}
@@ -206,171 +210,7 @@ class DpdLabelGenerator extends Module
 	{
 		if($params['newOrderStatus']->id == (int)Configuration::get($this->generateVariableName('On status')))
 		{
-			$current_order = new Order($params['id_order']);
-			$current_carrier = new Carrier($current_order->id_carrier);
-			
-			if(Configuration::get($this->generateVariableName('DPD Carrier Only')) == 1
-				&& $current_carrier->external_module_name != 'dpdcarrier')
-					return;
-
-			$url = Configuration::get($this->generateVariableName('live server')) == 1 ? 'https://public-ws.dpd.com/services/' : 'https://public-ws-stage.dpd.com/services/';
-		
-			$login;
-			if(!($login = unserialize(Configuration::get($this->generateVariableName('login'))))
-				|| !($login->url == $url))
-			{
-				$delisID = Configuration::get($this->generateVariableName('delisid'));
-				$delisPw = Configuration::get($this->generateVariableName('password'));
-			
-				try
-				{
-					$login = new DpdLogin($delisID, $delisPw, $url);
-					$login->refreshed = true;
-				}
-				catch (Exception $e)
-				{
-					Logger::addLog('Something went wrong logging in to the DPD Web Services (' . $e->getMessage() . ')', 3, null, null, null, true);
-					$this->context->controller->errors[] = Tools::displayError('Something went wrong logging in to the DPD Web Services (' . $e->getMessage() . ')');
-				}
-				if(!count($this->context->controller->errors))
-					Configuration::updateValue($this->generateVariableName('login'), serialize($login));
-			}
-			
-			if(!count($this->context->controller->errors))
-			{
-				//$recipient_address = new Address($current_order->id_address_invoice)
-				if($current_carrier->external_module_name == 'dpdcarrier'
-					&& $current_carrier->id_reference == $parcelshop_carrier->id_reference)
-					$recipient_address = new Address($current_order->id_address_invoice);
-				else
-					$recipient_address = new Address($current_order->id_address_delivery);
-					
-				$recipient_customer = new Customer($current_order->id_customer);
-				
-				$current_order = new Order($params['id_order']);
-				$old_order_carrier = new OrderCarrier($current_order->getIdOrderCarrier());
-				
-				$shipment = new DpdShipment($login);
-				
-				$shipment->request['order'] = array(
-					'generalShipmentData' => array(
-						'mpsCustomerReferenceNumber1' => $current_order->reference
-						,'sendingDepot' => $login->depot
-						,'product' => 'CL'
-						,'sender' => array(
-							'name1' => Configuration::get('PS_SHOP_NAME')
-							,'street' => Configuration::get('PS_SHOP_ADDR1')
-							,'country' => Country::getIsoById(Configuration::get('PS_SHOP_COUNTRY_ID'))
-							,'zipCode' => Configuration::get('PS_SHOP_CODE')
-							,'city' => Configuration::get('PS_SHOP_CITY')
-						)
-						,'recipient' => array(
-							'name1' => substr($recipient_address->firstname . ' ' . $recipient_address->lastname, 0, 35)
-							,'name2' => $recipient_address->address2
-							,'street' => $recipient_address->address1
-							,'country' => Country::getIsoById($recipient_address->id_country)
-							,'zipCode' => $recipient_address->postcode
-							,'city' => $recipient_address->city
-							,'phone' => $recipient_customer->phone_mobile
-							,'email' => $recipient_customer->email
-						)
-					)
-					,'parcels' => array(
-						'customerReferenceNumber1' => $current_order->reference
-						,'weight' => $old_order_carrier->weight * $this->getWeightMultiplier()
-					)
-				);
-				
-				$shipment->request['order']['productAndServiceData']['orderType'] = 'consignment';
-				
-				$parcelshop_carrier = new Carrier(Configuration::get($this->generateVariableName('pickup id')));
-				$classic_carrier = new Carrier(Configuration::get($this->generateVariableName('home id')));
-				$home_carrier = new Carrier(Configuration::get($this->generateVariableName('home with predict id')));
-				
-				
-				if($current_carrier->external_module_name == 'dpdcarrier'
-					&& $current_carrier->id_reference == $parcelshop_carrier->id_reference)
-				{
-					$parcelshop_address = new Address($current_order->id_address_delivery);
-					$shipment->request['order']['productAndServiceData']['parcelShopDelivery']['parcelShopId'] = $parcelshop_address->other;
-					if($recipient_customer->email)
-						$shipment->request['order']['productAndServiceData']['parcelShopDelivery']['parcelShopNotification'] = array(
-							'channel' => '1'
-							,'value' => $recipient_customer->email
-							,'language' => Language::getIsoById($current_order->id_lang)
-						);
-					elseif($recipient_address->phone_mobile)
-						$shipment->request['order']['productAndServiceData']['parcelShopDelivery']['parcelShopNotification'] = array(
-							'channel' => '3'
-							,'value' => $recipient_address->phone_mobile
-							,'language' => Language::getIsoById($current_order->id_lang)
-						);
-				}
-				elseif(($current_carrier->external_module_name != 'dpdcarrier'
-					&& Configuration::get($this->generateVariableName('Default Predict')) == 1)
-					|| $current_carrier->id_reference == $home_carrier->id_reference)
-					if($recipient_customer->email)
-						$shipment->request['order']['productAndServiceData']['predict'] = array(
-							'channel' => '1'
-							,'value' => $recipient_customer->email
-							,'language' => Language::getIsoById($current_order->id_lang)
-						);
-					elseif($recipient_address->phone_mobile)
-						$shipment->request['order']['productAndServiceData']['predict'] = array(
-							'channel' => '3'
-							,'value' => $recipient_address->phone_mobile
-							,'language' => Language::getIsoById($current_order->id_lang)
-						);
-
-				try
-				{
-					$shipment->send();
-				} 
-				catch (Exception $e)
-				{
-					Logger::addLog('Something went wrong while generating a DPD Label (' . $e->getMessage() . ')', 3, null, null, null, true);
-					$this->context->controller->errors[] = Tools::displayError('Something went wrong while generating a DPD Label (' . $e->getMessage() . ')');
-				}
-				
-				if(!count($this->context->controller->errors))
-				{
-					if($shipment->login->refreshed)
-					{
-						Logger::addLog('DPD Login Refreshed', 1, null, null, null, true);
-						$shipment->login->refreshed = false;
-						Configuration::updateValue($this->generateVariableName('login'), serialize($parcelshopfinder->login));
-					}
-					
-					$parcel_label_number = $shipment->result->orderResult->shipmentResponses->parcelInformation->parcelLabelNumber;
-					
-					if(!($new_pdf = fopen($this->download_location . DS . $parcel_label_number . '.pdf', 'w')))
-					{
-						Logger::addLog('The new PDF (DPD Label) file could not be created on the file system', 3, null, null, null, true);
-						$this->context->controller->errors[] = Tools::displayError('The new PDF file could not be created on the file system');
-					}
-					if(!fwrite($new_pdf, $shipment->result->orderResult->parcellabelsPDF))
-					{
-						Logger::addLog('The new PDF (DPD Label) file could not be written to file system', 3, null, null, null, true);
-						$this->context->controller->errors[] = Tools::displayError('Label could not be written to file system');
-					}
-					fclose($new_pdf);
-				
-					$new_order_carrier = new OrderCarrier();
-					
-					$new_order_carrier->id_order = $old_order_carrier->id_order;
-					$new_order_carrier->id_carrier = $old_order_carrier->id_carrier;
-					$new_order_carrier->weight = $old_order_carrier->weight;
-					$new_order_carrier->date_add = date("Y-m-d H:i:s");
-					$new_order_carrier->tracking_number = $parcel_label_number;
-					$new_order_carrier->save();
-					
-					if($old_order_carrier->tracking_number == '')
-					{
-						$old_order_carrier->tracking_number = $current_order->reference;
-						$old_order_carrier->save();
-					}
-				}
-			}
+			$this->generateLabel($params['id_order']);
 		}
 	}
 	
@@ -407,6 +247,7 @@ class DpdLabelGenerator extends Module
 				array(
 					'downloadLink' => $this->context->link->getAdminLink('AdminDpdLabels')
 					,'labels' => $labels
+					,'id_order'=> $params['id_order']
 				)
 			);
 			return $this->display(__FILE__, '_labels15.tpl');
@@ -447,6 +288,7 @@ class DpdLabelGenerator extends Module
 				array(
 					'downloadLink' => $this->context->link->getAdminLink('AdminDpdLabels')
 					,'labels' => $labels
+					,'id_order'=> $params['order']->id
 				)
 			);
 
@@ -530,7 +372,7 @@ class DpdLabelGenerator extends Module
 	private function getWeightMultiplier()
 	{
 		$weight_multiplier;
-		switch(_PS_WEIGHT_UNIT_)
+		switch(configuration::get('PS_WEIGHT_UNIT'))
 		{
 			case 'mg':
 				$weight_multiplier = 0.0001;
@@ -552,5 +394,184 @@ class DpdLabelGenerator extends Module
 				break;
 		}
 		return $weight_multiplier;
+	}
+	
+	public function generateLabel($id_order, $count = 1)
+	{
+		$current_order = new Order($id_order);
+		$current_carrier = new Carrier($current_order->id_carrier);
+		
+		if(Configuration::get($this->generateVariableName('DPD Carrier Only')) == 1
+			&& $current_carrier->external_module_name != 'dpdcarrier')
+				return;
+
+		$url = Configuration::get($this->generateVariableName('live server')) == 1 ? 'https://public-ws.dpd.com/services/' : 'https://public-ws-stage.dpd.com/services/';
+	
+		$login;
+		if(!($login = unserialize(Configuration::get($this->generateVariableName('login'))))
+			|| !($login->url == $url))
+		{
+			$delisID = Configuration::get($this->generateVariableName('delisid'));
+			$delisPw = Configuration::get($this->generateVariableName('password'));
+		
+			try
+			{
+				$login = new DpdLogin($delisID, $delisPw, $url);
+				$login->refreshed = true;
+			}
+			catch (Exception $e)
+			{
+				Logger::addLog('Something went wrong logging in to the DPD Web Services (' . $e->getMessage() . ')', 3, null, null, null, true);
+				$this->context->controller->errors[] = Tools::displayError('Something went wrong logging in to the DPD Web Services (' . $e->getMessage() . ')');
+			}
+			if(!count($this->context->controller->errors))
+				Configuration::updateValue($this->generateVariableName('login'), serialize($login));
+		}
+		
+		if(!count($this->context->controller->errors))
+		{
+			$parcelshop_carrier = new Carrier(Configuration::get($this->generateVariableName('pickup id')));
+			$classic_carrier = new Carrier(Configuration::get($this->generateVariableName('home id')));
+			$home_carrier = new Carrier(Configuration::get($this->generateVariableName('home with predict id')));
+			
+			//$recipient_address = new Address($current_order->id_address_invoice)
+			if($current_carrier->external_module_name == 'dpdcarrier'
+				&& $current_carrier->id_reference == $parcelshop_carrier->id_reference)
+				$recipient_address = new Address($current_order->id_address_invoice);
+			else
+				$recipient_address = new Address($current_order->id_address_delivery);
+				
+			$recipient_customer = new Customer($current_order->id_customer);
+			
+			$old_order_carrier = new OrderCarrier($current_order->getIdOrderCarrier());
+			
+			$shipment = new DpdShipment($login);
+			
+			$shipment->request['order'] = array(
+				'generalShipmentData' => array(
+					'mpsCustomerReferenceNumber1' => $current_order->reference
+					,'sendingDepot' => $login->depot
+					,'product' => 'CL'
+					,'sender' => array(
+						'name1' => Configuration::get('PS_SHOP_NAME')
+						,'street' => Configuration::get('PS_SHOP_ADDR1')
+						,'country' => Country::getIsoById(Configuration::get('PS_SHOP_COUNTRY_ID'))
+						,'zipCode' => Configuration::get('PS_SHOP_CODE')
+						,'city' => Configuration::get('PS_SHOP_CITY')
+					)
+					,'recipient' => array(
+						'name1' => substr($recipient_address->firstname . ' ' . $recipient_address->lastname, 0, 35)
+						,'name2' => $recipient_address->address2
+						,'street' => $recipient_address->address1
+						,'country' => Country::getIsoById($recipient_address->id_country)
+						,'zipCode' => $recipient_address->postcode
+						,'city' => $recipient_address->city
+						,'phone' => $recipient_address->phone_mobile
+						,'email' => $recipient_customer->email
+					)
+				)
+			);
+			
+			$default_weight = Configuration::get($this->generateVariableName('Default Weight'));
+			if(isset($default_weight)
+				&& $default_weight =! ''
+				&& $old_order_carrier->weight == 0)
+				$weight = $default_weight;
+			else
+				$weight = $old_order_carrier->weight;
+			
+			for ($i = 0; $i < $count; $i++)
+				$shipment->request['order']['parcels'][] = array(
+					'customerReferenceNumber1' => $current_order->reference
+					,'weight' => $weight * $this->getWeightMultiplier() / $count
+				);
+			
+			$shipment->request['order']['productAndServiceData']['orderType'] = 'consignment';
+
+			if($current_carrier->external_module_name == 'dpdcarrier'
+				&& $current_carrier->id_reference == $parcelshop_carrier->id_reference)
+			{
+				$parcelshop_address = new Address($current_order->id_address_delivery);
+				$shipment->request['order']['productAndServiceData']['parcelShopDelivery']['parcelShopId'] = $parcelshop_address->other;
+				if($recipient_customer->email)
+					$shipment->request['order']['productAndServiceData']['parcelShopDelivery']['parcelShopNotification'] = array(
+						'channel' => '1'
+						,'value' => $recipient_customer->email
+						,'language' => Language::getIsoById($current_order->id_lang)
+					);
+				elseif($recipient_address->phone_mobile)
+					$shipment->request['order']['productAndServiceData']['parcelShopDelivery']['parcelShopNotification'] = array(
+						'channel' => '3'
+						,'value' => $recipient_address->phone_mobile
+						,'language' => Language::getIsoById($current_order->id_lang)
+					);
+			}
+			elseif(($current_carrier->external_module_name != 'dpdcarrier'
+				&& Configuration::get($this->generateVariableName('Default Predict')) == 1)
+				|| $current_carrier->id_reference == $home_carrier->id_reference)
+				if($recipient_customer->email)
+					$shipment->request['order']['productAndServiceData']['predict'] = array(
+						'channel' => '1'
+						,'value' => $recipient_customer->email
+						,'language' => Language::getIsoById($current_order->id_lang)
+					);
+				elseif($recipient_address->phone_mobile)
+					$shipment->request['order']['productAndServiceData']['predict'] = array(
+						'channel' => '3'
+						,'value' => $recipient_address->phone_mobile
+						,'language' => Language::getIsoById($current_order->id_lang)
+					);
+
+			try
+			{
+				$shipment->send();
+			} 
+			catch (Exception $e)
+			{
+				Logger::addLog('Something went wrong while generating a DPD Label (' . $e->getMessage() . ')', 3, null, null, null, true);
+				$this->context->controller->errors[] = Tools::displayError('Something went wrong while generating a DPD Label (' . $e->getMessage() . ')');
+			}
+			
+			if(!count($this->context->controller->errors))
+			{
+				if($shipment->login->refreshed)
+				{
+					Logger::addLog('DPD Login Refreshed', 1, null, null, null, true);
+					$shipment->login->refreshed = false;
+					Configuration::updateValue($this->generateVariableName('login'), serialize($shipment->login));
+				}
+				
+				$parcel_label_number = $shipment->result->orderResult->shipmentResponses->parcelInformation->parcelLabelNumber;
+				
+				if(!($new_pdf = fopen($this->download_location . DS . $parcel_label_number . '.pdf', 'w')))
+				{
+					Logger::addLog('The new PDF (DPD Label) file could not be created on the file system', 3, null, null, null, true);
+					$this->context->controller->errors[] = Tools::displayError('The new PDF file could not be created on the file system');
+				}
+				if(!fwrite($new_pdf, $shipment->result->orderResult->parcellabelsPDF))
+				{
+					Logger::addLog('The new PDF (DPD Label) file could not be written to file system', 3, null, null, null, true);
+					$this->context->controller->errors[] = Tools::displayError('Label could not be written to file system');
+				}
+				fclose($new_pdf);
+			
+				$new_order_carrier = new OrderCarrier();
+				
+				$new_order_carrier->id_order = $old_order_carrier->id_order;
+				$new_order_carrier->id_carrier = $old_order_carrier->id_carrier;
+				$new_order_carrier->weight = $old_order_carrier->weight;
+				$new_order_carrier->date_add = date("Y-m-d H:i:s");
+				$new_order_carrier->tracking_number = $parcel_label_number;
+				$new_order_carrier->save();
+				
+				if($old_order_carrier->tracking_number == '')
+				{
+					$old_order_carrier->tracking_number = $current_order->reference;
+					$old_order_carrier->save();
+				}
+			
+				return $parcel_label_number;
+			}
+		}
 	}
 }
