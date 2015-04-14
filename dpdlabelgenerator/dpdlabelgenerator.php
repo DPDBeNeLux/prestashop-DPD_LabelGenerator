@@ -460,7 +460,7 @@ class DpdLabelGenerator extends Module
 						,'city' => Configuration::get('PS_SHOP_CITY')
 					)
 					,'recipient' => array(
-						'name1' => substr($recipient_address->firstname . ' ' . $recipient_address->lastname, 0, 35)
+						'name1' => substr($recipient_address->firstname . ' ' . $recipient_address->lastname . ' ' . $recipient_address->company, 0, 35)
 						,'name2' => $recipient_address->address2
 						,'street' => $recipient_address->address1
 						,'country' => Country::getIsoById($recipient_address->id_country)
