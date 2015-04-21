@@ -33,7 +33,7 @@ class DpdLabelGenerator extends Module
 		$this->config = new DpdLabelGeneratorConfig();
 	
 		$this->name = 'dpdlabelgenerator';
-		$this->version = '0.1.6';
+		$this->version = '0.1.7';
 		//$this->ps_versions_compliancy = array('min' => '1.5', 'max' => _PS_VERSION_);
 		$this->author = 'Michiel Van Gucht';
 		
@@ -466,7 +466,8 @@ class DpdLabelGenerator extends Module
 						,'country' => Country::getIsoById($recipient_address->id_country)
 						,'zipCode' => $recipient_address->postcode
 						,'city' => $recipient_address->city
-						,'phone' => $recipient_address->phone_mobile
+						,'contact' => isset($recipient_address->phone_mobile) && $recipient_address->phone_mobile != '' ? $recipient_address->phone_mobile : $recipient_address->phone
+						,'phone' => isset($recipient_address->phone_mobile) && $recipient_address->phone_mobile != '' ? $recipient_address->phone_mobile : $recipient_address->phone
 						,'email' => $recipient_customer->email
 					)
 				)
