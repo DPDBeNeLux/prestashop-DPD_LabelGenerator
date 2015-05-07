@@ -404,7 +404,7 @@ class DpdLabelGenerator extends Module
 		if(Configuration::get($this->generateVariableName('DPD Carrier Only')) == 1
 			&& $current_carrier->external_module_name != 'dpdcarrier')
 				return;
-
+		
 		$url = Configuration::get($this->generateVariableName('live server')) == 1 ? 'https://public-ws.dpd.com/services/' : 'https://public-ws-stage.dpd.com/services/';
 	
 		$login;
@@ -413,11 +413,12 @@ class DpdLabelGenerator extends Module
 		{
 			$delisID = Configuration::get($this->generateVariableName('delisid'));
 			$delisPw = Configuration::get($this->generateVariableName('password'));
+			
+			$timeLogging = Configuration::get($this->generateVariableName('time logging')) == 1;
 		
 			try
 			{
-				$login = new DpdLogin($delisID, $delisPw, $url);
-				$login->refreshed = true;
+				$login = new DpdLogin($delisID, $delisPw, $url, $timeLogging);
 			}
 			catch (Exception $e)
 			{

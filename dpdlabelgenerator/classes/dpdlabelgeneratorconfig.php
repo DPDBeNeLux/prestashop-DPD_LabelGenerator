@@ -153,6 +153,30 @@ class DpdLabelGeneratorConfig
 				)
 			)
 		)
+		,array(
+			'name'	=> 'Logging Options'
+			,'elements'	=> array(
+				array(
+					'type' => 'radio'
+					,'name' => 'Time Logging'
+					,'required' => true
+					,'class' => 't'
+					,'default_value' => 1
+					,'values' => array(
+						array(
+							'id' => 'on'
+							,'value' => 1
+							,'label' => 'On'
+						)
+						,array(
+							'id' => 'off'
+							,'value' => 2
+							,'label' => 'Off'
+						)
+					)
+				)
+			)
+		)
 	);
 	
 	public function __construct(){
@@ -172,7 +196,10 @@ class DpdLabelGeneratorConfig
 		
 		if(Module::isInstalled('dpdcarrier')
 			&& Module::isEnabled('dpdcarrier'))
+		{
 			array_shift($this->config);
+			unset($this->config[3]);
+		}
 		else
 			unset($this->config[1]['elements'][1]);
 	}
