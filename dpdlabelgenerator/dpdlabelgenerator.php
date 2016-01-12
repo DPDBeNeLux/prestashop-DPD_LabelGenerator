@@ -210,7 +210,12 @@ class DpdLabelGenerator extends Module
 	{
 		if($params['newOrderStatus']->id == (int)Configuration::get($this->generateVariableName('On status')))
 		{
-			$this->generateLabel($params['id_order']);
+			$setWeight = Tools::getValue('parcelLabelWeight');
+			if($setWeight != '') {
+				$this->generateLabel($params['id_order'], 1, $setWeight);
+			} else {
+				$this->generateLabel($params['id_order']);
+			}
 		}
 	}
 	
@@ -228,6 +233,7 @@ class DpdLabelGenerator extends Module
 
 	public function hookDisplayAdminOrder($params)
 	{
+		$this->context->controller->addJS($this->_path.'js/variable_weight.js');
 		if(substr(_PS_VERSION_, 0, 3) == '1.5')
 		{
 			$labels = array();
@@ -396,7 +402,7 @@ class DpdLabelGenerator extends Module
 		return $weight_multiplier;
 	}
 	
-	public function generateLabel($id_order, $count = 1)
+	public function generateLabel($id_order, $count = 1, $setWeight = null)
 	{
 		$current_order = new Order($id_order);
 		$current_carrier = new Carrier($current_order->id_carrier);
@@ -474,14 +480,18 @@ class DpdLabelGenerator extends Module
 				)
 			);
 			
-			$default_weight = Configuration::get($this->generateVariableName('Default Weight'));
-			if(isset($default_weight)
-				&& $default_weight =! ''
-				&& $old_order_carrier->weight == 0)
-				$weight = $default_weight;
-			else
-				$weight = $old_order_carrier->weight;
-			
+			if(isset($setWeight) && $setWeight != null) {
+				$weight = $setWeight;
+			} else {
+				$default_weight = Configuration::get($this->generateVariableName('Default Weight'));
+				if(isset($default_weight)
+					&& $default_weight =! ''
+					&& $old_order_carrier->weight == 0)
+					$weight = $default_weight;
+				else
+					$weight = $old_order_carrier->weight;
+			}
+
 			for ($i = 0; $i < $count; $i++)
 				$shipment->request['order']['parcels'][] = array(
 					'customerReferenceNumber1' => $current_order->reference
@@ -562,7 +572,7 @@ class DpdLabelGenerator extends Module
 				
 				$new_order_carrier->id_order = $old_order_carrier->id_order;
 				$new_order_carrier->id_carrier = $old_order_carrier->id_carrier;
-				$new_order_carrier->weight = $old_order_carrier->weight;
+				$new_order_carrier->weight = $weight;
 				$new_order_carrier->date_add = date("Y-m-d H:i:s");
 				$new_order_carrier->tracking_number = $parcel_label_number;
 				$new_order_carrier->save();
