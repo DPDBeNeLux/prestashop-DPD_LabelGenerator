@@ -405,7 +405,7 @@ class DpdLabelGenerator extends Module
 			&& $current_carrier->external_module_name != 'dpdcarrier')
 				return;
 		
-		$url = Configuration::get($this->generateVariableName('live server')) == 1 ? 'https://public-ws.dpd.com/services/' : 'https://public-ws-stage.dpd.com/services/';
+		$url = Configuration::get($this->generateVariableName('live server')) == 1 ? 'https://public-dis.dpd.nl/Services/' : 'https://public-dis-stage.dpd.nl/Services/';
 	
 		$login;
 		if(!($login = unserialize(Configuration::get($this->generateVariableName('login'))))
